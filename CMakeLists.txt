@@ -4,10 +4,20 @@ project(dot_bench CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(ENABLE_COMPILER_OPT "Enable compiler optimizations" ON)
 option(ENABLE_OPENMP "Enable OpenMP parallel version" ON)
 option(ENABLE_SIMD "Enable SIMD (AVX2 on x86, NEON on ARM)" ON)
 
 add_executable(dot_bench dot_bench.cpp)
+
+if (ENABLE_COMPILER_OPT)
+  target_compile_options(dot_bench PRIVATE
+    -O3
+    -ffast-math
+    -funroll-loops
+    -fstrict-aliasing
+  )
+endif()
 
 if (ENABLE_OPENMP)
     find_package(OpenMP)

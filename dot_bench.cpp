@@ -285,10 +285,5 @@ int main(int argc, char **argv) {
                   << std::scientific << std::setprecision(6) << res.value << "\n";
     }
 
-#ifdef _OPENMP
-    std::cout << "\n[Info] OpenMP enabled.\n";
-#else
-    std::cout << "\n[Info] OpenMP not enabled in this build.\n";
-#endif
     return 0;
 }
