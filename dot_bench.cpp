@@ -19,6 +19,12 @@
 #include <omp.h>
 #endif
 
+#if defined(__aarch64__) || defined(__ARM_NEON)
+#include <arm_neon.h>
+#elif defined(__x86_64__) || defined(_M_X64) || defined(__AVX__) || defined(__AVX2__)
+#include <immintrin.h>
+#endif
+
 // ==========================================================
 // Simple Argument Parser (dependency-free)
 // ==========================================================
@@ -120,6 +126,49 @@ double dot_openmp(const double *a, const double *b, size_t n) {
 }
 #endif
 
+// SIMD (NEON for ARM, AVX2 for x86)
+double dot_simd(const double *a, const double *b, size_t n) {
+#if defined(__aarch64__)
+    // ARM NEON implementation
+    float64x2_t vsum = vdupq_n_f64(0.0);
+    size_t i = 0;
+    size_t limit = n / 2 * 2;
+    for (; i < limit; i += 2) {
+        float64x2_t va = vld1q_f64(a + i);
+        float64x2_t vb = vld1q_f64(b + i);
+        vsum = vaddq_f64(vsum, vmulq_f64(va, vb));
+    }
+    double buf[2];
+    vst1q_f64(buf, vsum);
+    double sum = buf[0] + buf[1];
+    for (; i < n; ++i)
+        sum += a[i] * b[i];
+    return sum;
+
+#elif defined(__AVX__) || defined(__AVX2__)
+    // x86 AVX2 version
+    __m256d vsum = _mm256_setzero_pd();
+    size_t i = 0;
+    size_t limit = n / 4 * 4;
+    for (; i < limit; i += 4) {
+        __m256d va = _mm256_loadu_pd(a + i);
+        __m256d vb = _mm256_loadu_pd(b + i);
+        __m256d prod = _mm256_mul_pd(va, vb);
+        vsum = _mm256_add_pd(vsum, prod);
+    }
+    alignas(32) double buf[4];
+    _mm256_store_pd(buf, vsum);
+    double sum = buf[0] + buf[1] + buf[2] + buf[3];
+    for (; i < n; ++i)
+        sum += a[i] * b[i];
+    return sum;
+
+#else
+    // fallback if SIMD not supported
+    return dot_unrolled(a, b, n);
+#endif
+}
+
 // ==========================================================
 // Benchmarking Utilities
 // ==========================================================
@@ -201,7 +250,8 @@ int main(int argc, char **argv) {
     std::vector<std::pair<std::string, DotFn>> tests = {
         {"naive", dot_naive},
         {"unrolled", dot_unrolled},
-        {"openmp", dot_openmp}
+        {"openmp", dot_openmp},
+        {"simd", dot_simd}
     };
 
     std::cout << std::left << std::setw(12) << "Variant"
