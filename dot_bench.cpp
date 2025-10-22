@@ -169,6 +169,21 @@ double dot_simd(const double *a, const double *b, size_t n) {
 #endif
 }
 
+#ifdef _OPENMP
+double dot_openmp_simd(const double *a, const double *b, size_t n) {
+    double sum = 0.0;
+#pragma omp parallel for simd reduction(+:sum)
+    for (size_t i = 0; i < n; ++i)
+        sum += a[i] * b[i];
+
+    return sum;
+}
+#else
+double dot_openmp_simd(const double *a, const double *b, size_t n) {
+    return dot_simd(a, b, n);
+}
+#endif
+
 // ==========================================================
 // Benchmarking Utilities
 // ==========================================================
@@ -251,7 +266,8 @@ int main(int argc, char **argv) {
         {"naive", dot_naive},
         {"unrolled", dot_unrolled},
         {"openmp", dot_openmp},
-        {"simd", dot_simd}
+        {"simd", dot_simd},
+        {"openmp_simd", dot_openmp_simd}
     };
 
     std::cout << std::left << std::setw(12) << "Variant"
